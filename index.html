@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arm Wrestling Duel</title>
+    <style>
+      :root {
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        color: #f8f9fb;
+        background: #0c0f19;
+      }
+
+      body {
+        margin: 0;
+        display: flex;
+        min-height: 100vh;
+        justify-content: center;
+        align-items: center;
+        background: radial-gradient(circle at top, #1f2a44 0%, #080a10 70%);
+      }
+
+      .hud {
+        width: min(1100px, 96vw);
+        background: rgba(7, 12, 24, 0.9);
+        border: 2px solid #3b4b8f;
+        border-radius: 18px;
+        padding: 18px 22px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 12px;
+      }
+
+      .player {
+        flex: 1 1 200px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+
+      .player span {
+        font-size: 1.2rem;
+      }
+
+      .player.left {
+        background: linear-gradient(90deg, #2eccff, rgba(46, 204, 255, 0.3));
+      }
+
+      .player.right {
+        background: linear-gradient(90deg, rgba(255, 99, 132, 0.3), #ff6384);
+        text-align: right;
+      }
+
+      .center-info {
+        text-align: center;
+        flex: 1 1 160px;
+        font-size: 1.3rem;
+        font-weight: 600;
+      }
+
+      #arena {
+        width: 100%;
+        height: auto;
+        border-radius: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        background: #0a0d18;
+        display: block;
+      }
+
+      .status-bar {
+        margin-top: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 1rem;
+        color: #d2dcff;
+      }
+
+      .status-bar strong {
+        font-size: 1.2rem;
+      }
+
+      .hint {
+        font-size: 0.95rem;
+        color: #9eb6ff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hud">
+      <header>
+        <div class="player left">
+          <span>Player A (Left)</span>
+          <span id="winsA">0 wins</span>
+        </div>
+        <div class="center-info">
+          Strength: <span id="strengthValue">0</span>
+        </div>
+        <div class="player right">
+          <span id="winsB">0 wins</span>
+          <span>Player B (Right)</span>
+        </div>
+      </header>
+      <canvas id="arena" width="1000" height="520"></canvas>
+      <div class="status-bar">
+        <div>
+          Input keys: <strong>A</strong> (Player A) / <strong>L</strong> (Player B)
+        </div>
+        <div id="status">Round in progress</div>
+        <div class="hint">Each trigger adds +5 strength toward that player.</div>
+      </div>
+    </div>
+
+    <script>
+      const state = {
+        progress: 0,
+        increment: 5,
+        wins: { A: 0, B: 0 },
+        pushing: null,
+        locked: false,
+        resetDelay: 1200,
+      };
+
+      const canvas = document.getElementById("arena");
+      const ctx = canvas.getContext("2d");
+      const winsA = document.getElementById("winsA");
+      const winsB = document.getElementById("winsB");
+      const strengthValue = document.getElementById("strengthValue");
+      const status = document.getElementById("status");
+
+      function clamp(val, min, max) {
+        return Math.min(Math.max(val, min), max);
+      }
+
+      function handleInput(player) {
+        if (state.locked) return;
+        const delta = player === "A" ? state.increment : -state.increment;
+        state.progress = clamp(state.progress + delta, -100, 100);
+        state.pushing = player;
+        strengthValue.textContent = state.progress;
+
+        if (state.progress === 100) {
+          declareWinner("A");
+        } else if (state.progress === -100) {
+          declareWinner("B");
+        }
+      }
+
+      function declareWinner(player) {
+        state.locked = true;
+        state.wins[player] += 1;
+        updateWins();
+        status.textContent = `Player ${player} WINS!`;
+        setTimeout(resetRound, state.resetDelay);
+      }
+
+      function resetRound() {
+        state.progress = 0;
+        state.pushing = null;
+        strengthValue.textContent = 0;
+        status.textContent = "Round in progress";
+        state.locked = false;
+      }
+
+      function updateWins() {
+        winsA.textContent = `${state.wins.A} wins`;
+        winsB.textContent = `${state.wins.B} wins`;
+      }
+
+      document.addEventListener("keydown", (event) => {
+        if (event.repeat) return;
+        if (event.key.toLowerCase() === "a") {
+          handleInput("A");
+        } else if (event.key.toLowerCase() === "l") {
+          handleInput("B");
+        }
+      });
+
+      // Expose helpers for external triggers (OBS, chat bots, etc.).
+      window.armWrestleTrigger = (player) => {
+        if (player !== "A" && player !== "B") return;
+        handleInput(player);
+      };
+
+      function drawTable() {
+        ctx.fillStyle = "#121726";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Crowd lights
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, "rgba(46, 204, 255, 0.12)");
+        gradient.addColorStop(0.5, "rgba(12, 15, 25, 0.2)");
+        gradient.addColorStop(1, "rgba(255, 99, 132, 0.12)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Table
+        ctx.fillStyle = "#1c2439";
+        ctx.fillRect(140, 260, canvas.width - 280, 120);
+        ctx.fillStyle = "#0d1324";
+        ctx.fillRect(140, 380, canvas.width - 280, 20);
+      }
+
+      function drawContestant(side) {
+        const isLeft = side === "left";
+        const bodyX = isLeft ? 220 : canvas.width - 220;
+        const bodyColor = isLeft ? "#2eccff" : "#ff6384";
+
+        ctx.fillStyle = bodyColor;
+        ctx.beginPath();
+        ctx.ellipse(bodyX, 200, 80, 110, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#f1f1f1";
+        ctx.beginPath();
+        ctx.arc(bodyX, 120, 42, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function drawArms() {
+        const pivotY = 320;
+        const pivotSpacing = 120;
+        const neutralAngle = 0;
+        const maxAngle = 0.75; // radians ~43°
+        const normalized = state.progress / 100; // -1 to 1
+
+        const leftAngle = neutralAngle - normalized * maxAngle;
+        const rightAngle = neutralAngle - normalized * maxAngle;
+
+        const armLength = 180;
+        const armWidth = 32;
+
+        // Left arm
+        ctx.save();
+        ctx.translate(canvas.width / 2 - pivotSpacing, pivotY);
+        ctx.rotate(leftAngle);
+        ctx.fillStyle = "#2eccff";
+        ctx.fillRect(-armWidth / 2, -armLength, armWidth, armLength);
+        ctx.restore();
+
+        // Right arm
+        ctx.save();
+        ctx.translate(canvas.width / 2 + pivotSpacing, pivotY);
+        ctx.rotate(Math.PI - rightAngle);
+        ctx.fillStyle = "#ff6384";
+        ctx.fillRect(-armWidth / 2, -armLength, armWidth, armLength);
+        ctx.restore();
+
+        // Hands lock
+        ctx.save();
+        ctx.translate(canvas.width / 2, pivotY - 170 + normalized * 40);
+        ctx.rotate(normalized * 0.1);
+        ctx.fillStyle = "#ffe0b3";
+        ctx.beginPath();
+        ctx.roundRect(-40, -25, 80, 50, 18);
+        ctx.fill();
+        ctx.restore();
+
+        // Indicator glow for pushing player
+        if (state.pushing) {
+          const color = state.pushing === "A" ? "rgba(46,204,255,0.4)" : "rgba(255,99,132,0.4)";
+          const offset = state.pushing === "A" ? -pivotSpacing : pivotSpacing;
+          ctx.save();
+          ctx.translate(canvas.width / 2 + offset, pivotY - 120);
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(0, 0, 40, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function drawProgressBar() {
+        const barWidth = 600;
+        const barHeight = 14;
+        const barX = (canvas.width - barWidth) / 2;
+        const barY = 70;
+
+        ctx.fillStyle = "rgba(255,255,255,0.1)";
+        ctx.roundRect(barX, barY, barWidth, barHeight, barHeight / 2);
+        ctx.fill();
+
+        const mid = barWidth / 2;
+        const fill = (state.progress / 100) * mid;
+
+        if (fill >= 0) {
+          ctx.fillStyle = "#2eccff";
+          ctx.roundRect(barX + mid, barY, fill, barHeight, barHeight / 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = "#ff6384";
+          ctx.roundRect(barX + mid + fill, barY, Math.abs(fill), barHeight, barHeight / 2);
+          ctx.fill();
+        }
+
+        ctx.fillStyle = "#f8f9fb";
+        ctx.font = "16px 'Segoe UI', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`${state.progress}%`, canvas.width / 2, barY - 8);
+      }
+
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawTable();
+        drawContestant("left");
+        drawContestant("right");
+        drawArms();
+        drawProgressBar();
+        requestAnimationFrame(animate);
+      }
+
+      // Polyfill for roundRect in some browsers
+      if (!CanvasRenderingContext2D.prototype.roundRect) {
+        CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+          if (w < 2 * r) r = w / 2;
+          if (h < 2 * r) r = h / 2;
+          this.beginPath();
+          this.moveTo(x + r, y);
+          this.arcTo(x + w, y, x + w, y + h, r);
+          this.arcTo(x + w, y + h, x, y + h, r);
+          this.arcTo(x, y + h, x, y, r);
+          this.arcTo(x, y, x + w, y, r);
+          this.closePath();
+          return this;
+        };
+      }
+
+      animate();
+    </script>
+  </body>
+</html>
