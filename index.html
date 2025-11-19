@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Arm Wrestling Duel</title>
+    <style>
+      :root {
+        --bg: radial-gradient(circle at 20% 20%, #111a3a, #05040a 70%);
+        --panel: rgba(6, 11, 23, 0.9);
+        --blue: #38e0ff;
+        --blue-dark: #0b9ed1;
+        --pink: #ff4fa5;
+        --pink-dark: #cc1f72;
+        font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+        color: #f5fbff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: var(--bg);
+        color: inherit;
+        padding: 18px;
+      }
+
+      .app {
+        width: min(1200px, 100%);
+        background: linear-gradient(145deg, rgba(8, 12, 25, 0.95), rgba(4, 5, 11, 0.85));
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 28px;
+        padding: clamp(18px, 4vw, 32px);
+        box-shadow: 0 40px 90px rgba(0, 0, 0, 0.55);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .scoreboard {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        align-items: center;
+        gap: 16px;
+      }
+
+      .player-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 18px;
+        padding: 14px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        min-height: 80px;
+        box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05);
+      }
+
+      .player-card.left {
+        border: 1px solid rgba(56, 224, 255, 0.6);
+        background: linear-gradient(135deg, rgba(56, 224, 255, 0.15), rgba(56, 224, 255, 0.02));
+        color: var(--blue);
+      }
+
+      .player-card.right {
+        border: 1px solid rgba(255, 79, 165, 0.6);
+        background: linear-gradient(225deg, rgba(255, 79, 165, 0.15), rgba(255, 79, 165, 0.02));
+        color: var(--pink);
+        text-align: right;
+      }
+
+      .player-card .wins {
+        font-size: 1.4rem;
+        color: #f5fbff;
+      }
+
+      .readout {
+        text-align: center;
+        font-weight: 600;
+        color: #c8d4ff;
+        font-size: 1.1rem;
+      }
+
+      .readout span {
+        display: inline-block;
+        min-width: 70px;
+        font-size: 1.6rem;
+        color: #fff;
+      }
+
+      .arena {
+        position: relative;
+        background: radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.9));
+        border-radius: 32px;
+        padding: clamp(30px, 6vw, 60px);
+        overflow: hidden;
+        min-height: clamp(280px, 55vw, 460px);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+      }
+
+      .arena::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 20% 20%, rgba(56, 224, 255, 0.08), transparent 45%),
+          radial-gradient(circle at 80% 20%, rgba(255, 79, 165, 0.08), transparent 40%);
+        pointer-events: none;
+      }
+
+      .table-glow {
+        position: absolute;
+        left: 50%;
+        top: 55%;
+        width: clamp(300px, 70%, 780px);
+        height: 120px;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(90deg, rgba(56, 224, 255, 0.3), rgba(255, 79, 165, 0.3));
+        filter: blur(60px);
+        opacity: 0.6;
+      }
+
+      .arm {
+        position: absolute;
+        bottom: 26%;
+        width: 36%;
+        max-width: 320px;
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        transition: filter 0.2s ease;
+      }
+
+      .arm.left {
+        left: 6%;
+      }
+
+      .arm.right {
+        right: 6%;
+      }
+
+      .forearm {
+        width: 70%;
+        height: clamp(160px, 30vw, 210px);
+        border-radius: 40px;
+        position: relative;
+        transform-origin: bottom center;
+        transform: rotate(var(--arm-angle, 15deg));
+        box-shadow: inset 0 -25px 45px rgba(0, 0, 0, 0.35), 0 20px 30px rgba(0, 0, 0, 0.45);
+      }
+
+      .arm.left .forearm {
+        background: linear-gradient(180deg, var(--blue), var(--blue-dark));
+      }
+
+      .arm.right .forearm {
+        background: linear-gradient(180deg, var(--pink), var(--pink-dark));
+        transform: rotate(var(--arm-angle, -15deg));
+      }
+
+      .arm .forearm::before {
+        content: "";
+        position: absolute;
+        bottom: -18px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90px;
+        height: 70px;
+        background: linear-gradient(145deg, #ffe6c7, #f9c495);
+        border-radius: 32px;
+        box-shadow: inset 0 -10px 18px rgba(0, 0, 0, 0.2);
+      }
+
+      .arm .forearm::after {
+        content: "";
+        position: absolute;
+        top: -15px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 130px;
+        height: 70px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent);
+        border-radius: 35px;
+        opacity: 0.25;
+      }
+
+      .arm.pulse .forearm {
+        animation: armPulse 220ms ease;
+      }
+
+      .arm.active .forearm {
+        filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.5));
+      }
+
+      .hand-grip {
+        position: absolute;
+        left: 50%;
+        bottom: 35%;
+        transform: translateX(-50%);
+        width: 120px;
+        height: 80px;
+        border-radius: 30px;
+        background: linear-gradient(160deg, #ffe5c4, #ffcf98);
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.35);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 2;
+        transition: transform 0.18s ease;
+      }
+
+      .hand-grip span {
+        width: 70px;
+        height: 18px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.15);
+      }
+
+      .progress-track {
+        position: absolute;
+        left: 50%;
+        top: 60%;
+        transform: translateX(-50%);
+        width: clamp(260px, 70%, 620px);
+        height: 18px;
+        border-radius: 30px;
+        background: rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+        box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.4);
+      }
+
+      .progress-fill,
+      .progress-fill.negative {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        width: 0%;
+      }
+
+      .progress-fill {
+        left: 50%;
+        transform-origin: left center;
+        background: linear-gradient(90deg, var(--blue-dark), var(--blue));
+      }
+
+      .progress-fill.negative {
+        right: 50%;
+        left: auto;
+        transform-origin: right center;
+        background: linear-gradient(90deg, var(--pink-dark), var(--pink));
+      }
+
+      .progress-marker {
+        position: absolute;
+        top: -6px;
+        width: 12px;
+        height: 30px;
+        border-radius: 6px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2));
+        transform: translateX(-50%);
+        left: 50%;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+      }
+
+      .progress-track.flash::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.35);
+        animation: barFlash 500ms ease;
+      }
+
+      .win-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: clamp(2rem, 7vw, 3rem);
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #fff;
+        opacity: 0;
+        pointer-events: none;
+        text-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+        transition: opacity 200ms ease;
+      }
+
+      .win-overlay.show {
+        opacity: 1;
+      }
+
+      .cta {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 20px;
+        padding: clamp(12px, 3vw, 18px);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        text-align: center;
+      }
+
+      .cta .status {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #e0e7ff;
+      }
+
+      .cta .hint {
+        font-size: 0.95rem;
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      @keyframes armPulse {
+        0% {
+          transform: rotate(var(--arm-angle)) scale(1);
+        }
+        40% {
+          transform: rotate(calc(var(--arm-angle) * 0.96)) scale(1.02);
+        }
+        100% {
+          transform: rotate(var(--arm-angle)) scale(1);
+        }
+      }
+
+      @keyframes tableImpact {
+        0% {
+          transform: translateY(0);
+        }
+        25% {
+          transform: translateY(6px);
+        }
+        60% {
+          transform: translateY(-2px);
+        }
+        100% {
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes barFlash {
+        0% {
+          opacity: 0.7;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      .arena.impact {
+        animation: tableImpact 450ms ease;
+      }
+
+      @media (max-width: 720px) {
+        .scoreboard {
+          grid-template-columns: 1fr;
+        }
+
+        .arm {
+          width: 44%;
+          bottom: 24%;
+        }
+
+        .player-card {
+          text-align: center;
+        }
+
+        .player-card.right {
+          text-align: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="scoreboard">
+        <div class="player-card left">
+          <div>Player A (Left)</div>
+          <div class="wins" id="winsA">0 wins</div>
+        </div>
+        <div class="readout">
+          Strength: <span id="strengthValue">0</span>
+        </div>
+        <div class="player-card right">
+          <div class="wins" id="winsB">0 wins</div>
+          <div>Player B (Right)</div>
+        </div>
+      </header>
+      <section class="arena" id="arena">
+        <div class="table-glow"></div>
+        <div class="arm left" id="armA">
+          <div class="forearm"></div>
+        </div>
+        <div class="arm right" id="armB">
+          <div class="forearm"></div>
+        </div>
+        <div class="hand-grip" id="handGrip"><span></span></div>
+        <div class="progress-track" id="progressTrack">
+          <div class="progress-fill negative" id="progressFillNegative"></div>
+          <div class="progress-fill" id="progressFill"></div>
+          <div class="progress-marker" id="progressMarker"></div>
+        </div>
+        <div class="win-overlay" id="winOverlay"></div>
+      </section>
+      <footer class="cta">
+        <div class="status" id="status">Round in progress</div>
+        <div class="hint">Press <strong>A</strong> for Player A • Press <strong>L</strong> for Player B</div>
+        <div class="hint">Each trigger adds +5 strength toward that player.</div>
+      </footer>
+    </div>
+
+    <script>
+      const state = {
+        progress: 0,
+        increment: 5,
+        wins: { A: 0, B: 0 },
+        pushing: null,
+        locked: false,
+        resetDelay: 1200,
+      };
+
+      const winsA = document.getElementById("winsA");
+      const winsB = document.getElementById("winsB");
+      const strengthValue = document.getElementById("strengthValue");
+      const status = document.getElementById("status");
+      const leftArm = document.getElementById("armA");
+      const rightArm = document.getElementById("armB");
+      const progressFillPositive = document.getElementById("progressFill");
+      const progressFillNegative = document.getElementById("progressFillNegative");
+      const progressMarker = document.getElementById("progressMarker");
+      const progressTrack = document.getElementById("progressTrack");
+      const handGrip = document.getElementById("handGrip");
+      const winOverlay = document.getElementById("winOverlay");
+      const arena = document.getElementById("arena");
+
+      function clamp(val, min, max) {
+        return Math.min(Math.max(val, min), max);
+      }
+
+      function updateWins() {
+        winsA.textContent = `${state.wins.A} wins`;
+        winsB.textContent = `${state.wins.B} wins`;
+      }
+
+      function updateVisuals() {
+        const normalized = state.progress / 100;
+        const percent = normalized * 50;
+        const label = state.progress > 0 ? `+${state.progress}` : state.progress;
+        strengthValue.textContent = label;
+
+        progressFillPositive.style.width = normalized > 0 ? `${normalized * 50}%` : "0%";
+        progressFillNegative.style.width = normalized < 0 ? `${Math.abs(normalized) * 50}%` : "0%";
+        progressMarker.style.left = `${50 + percent}%`;
+
+        const leftAngle = 15 - normalized * 25;
+        const rightAngle = -15 - normalized * 25;
+        leftArm.style.setProperty("--arm-angle", `${leftAngle}deg`);
+        rightArm.style.setProperty("--arm-angle", `${rightAngle}deg`);
+        handGrip.style.transform = `translateX(${normalized * 70}px) rotate(${normalized * 6}deg)`;
+
+        leftArm.classList.toggle("active", state.pushing === "A");
+        rightArm.classList.toggle("active", state.pushing === "B");
+      }
+
+      function pulseArm(player) {
+        const arm = player === "A" ? leftArm : rightArm;
+        arm.classList.remove("pulse");
+        void arm.offsetWidth;
+        arm.classList.add("pulse");
+      }
+
+      function handleInput(player) {
+        if (state.locked) return;
+        const delta = player === "A" ? state.increment : -state.increment;
+        state.progress = clamp(state.progress + delta, -100, 100);
+        state.pushing = player;
+        updateVisuals();
+        pulseArm(player);
+
+        if (state.progress === 100) {
+          declareWinner("A");
+        } else if (state.progress === -100) {
+          declareWinner("B");
+        }
+      }
+
+      function declareWinner(player) {
+        state.locked = true;
+        state.wins[player] += 1;
+        updateWins();
+        status.textContent = `Player ${player} WINS!`;
+        winOverlay.textContent = player === "A" ? "Player A wins!" : "Player B wins!";
+        winOverlay.classList.add("show");
+        arena.classList.add("impact");
+        progressTrack.classList.add("flash");
+        setTimeout(() => {
+          arena.classList.remove("impact");
+          progressTrack.classList.remove("flash");
+        }, 600);
+        setTimeout(resetRound, state.resetDelay);
+      }
+
+      function resetRound() {
+        state.progress = 0;
+        state.pushing = null;
+        strengthValue.textContent = 0;
+        status.textContent = "Round in progress";
+        state.locked = false;
+        winOverlay.classList.remove("show");
+        updateVisuals();
+      }
+
+      document.addEventListener("keydown", (event) => {
+        if (event.repeat) return;
+        if (event.key.toLowerCase() === "a") {
+          handleInput("A");
+        } else if (event.key.toLowerCase() === "l") {
+          handleInput("B");
+        }
+      });
+
+      window.armWrestleTrigger = (player) => {
+        if (player !== "A" && player !== "B") return;
+        handleInput(player);
+      };
+
+      updateVisuals();
+    </script>
+  </body>
+</html>
